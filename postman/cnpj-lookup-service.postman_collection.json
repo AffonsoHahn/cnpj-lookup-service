@@ -1,0 +1,66 @@
+{
+  "info": {
+    "name": "CNPJ Lookup Service",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [{ "key": "baseUrl", "value": "http://127.0.0.1:8000" }],
+  "item": [
+    {
+      "name": "Health",
+      "request": { "method": "GET", "url": "{{baseUrl}}/health" },
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "pm.test('status is 200', () => pm.response.to.have.status(200));",
+        "pm.test('status ok', () => pm.expect(pm.response.json().status).to.eql('ok'));"
+      ] } }]
+    },
+    {
+      "name": "Company - valid CNPJ (1st call hits the API)",
+      "request": { "method": "GET", "url": "{{baseUrl}}/company/00.000.000%2F0001-91" },
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "pm.test('status is 200', () => pm.response.to.have.status(200));",
+        "const body = pm.response.json();",
+        "pm.test('has envelope fields', () => pm.expect(body).to.have.all.keys('source', 'fetched_at', 'data'));",
+        "pm.test('source is api or cache', () => pm.expect(['api', 'cache']).to.include(body.source));"
+      ] } }]
+    },
+    {
+      "name": "Company - same CNPJ again (served from cache)",
+      "request": { "method": "GET", "url": "{{baseUrl}}/company/00000000000191" },
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "pm.test('status is 200', () => pm.response.to.have.status(200));",
+        "pm.test('served from cache', () => pm.expect(pm.response.json().source).to.eql('cache'));"
+      ] } }]
+    },
+    {
+      "name": "Company - invalid CNPJ (expects 422)",
+      "request": { "method": "GET", "url": "{{baseUrl}}/company/11111111111111" },
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "pm.test('status is 422', () => pm.response.to.have.status(422));",
+        "pm.test('has error detail', () => pm.expect(pm.response.json().detail).to.be.a('string'));"
+      ] } }]
+    },
+    {
+      "name": "Companies - list cached lookups",
+      "request": { "method": "GET", "url": "{{baseUrl}}/companies?limit=10&offset=0" },
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "pm.test('status is 200', () => pm.response.to.have.status(200));",
+        "pm.test('items is an array', () => pm.expect(pm.response.json().items).to.be.an('array'));"
+      ] } }]
+    },
+    {
+      "name": "CEP - valid",
+      "request": { "method": "GET", "url": "{{baseUrl}}/cep/01001-000" },
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "pm.test('status is 200', () => pm.response.to.have.status(200));",
+        "pm.test('has data', () => pm.expect(pm.response.json()).to.have.property('data'));"
+      ] } }]
+    },
+    {
+      "name": "CEP - invalid (expects 422)",
+      "request": { "method": "GET", "url": "{{baseUrl}}/cep/123" },
+      "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+        "pm.test('status is 422', () => pm.response.to.have.status(422));"
+      ] } }]
+    }
+  ]
+}
