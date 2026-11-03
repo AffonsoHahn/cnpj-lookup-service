@@ -103,3 +103,32 @@ Manual API tests: import `postman/cnpj-lookup-service.postman_collection.json` i
 - SQLite and one connection per request are fine for a demo; use a connection pool or PostgreSQL for real traffic.
 - No authentication or per-client rate limiting on this service's own endpoints.
 - Add async httpx, API tests with FastAPI's `TestClient`, a Dockerfile and a GitHub Actions workflow.
+
+
+## Demo mode (no dependency on the real API)
+
+`tools/fake_brasilapi.py` is a local stand-in for BrasilAPI that returns **fake sample data**.
+It is useful to demo or test retry, caching and fallback when the real API is rate limiting.
+
+```bash
+python tools/fake_brasilapi.py                  # terminal 1: fake upstream on :9000
+python tools/fake_brasilapi.py --fail-first 2   # simulate two 429s before succeeding
+```
+
+```powershell
+# terminal 2 (PowerShell): point the service at the fake upstream, use a separate DB
+$env:BRASILAPI_BASE_URL="http://127.0.0.1:9000/api"
+$env:DB_PATH="demo.db"
+uvicorn app.main:app --reload
+```
+
+CNPJ `11222333000181` returns 404 in the fake server, to demo the "not found" path.
+
+
+## Lessons learned
+
+- **Slashes in path parameters:** a formatted CNPJ such as `00.000.000/0001-91` contains a `/`. A Postman test
+  returned 404 because the plain `{cnpj}` route does not match it. Declaring the route as `{cnpj:path}` fixed it.
+- **Rate limiting is real:** the public API returned 429 during testing. Retry with exponential backoff, a stale-cache
+  fallback and a local mock server (`tools/fake_brasilapi.py`) made it possible to validate the behavior anyway.
+- **Not found is not a temporary failure:** a 404 from upstream is never retried and never answered from stale cache.
